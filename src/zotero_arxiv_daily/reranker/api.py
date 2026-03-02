@@ -5,11 +5,17 @@ import numpy as np
 class ApiReranker(BaseReranker):
     def get_similarity_score(self, s1: list[str], s2: list[str]) -> np.ndarray:
         client = OpenAI(api_key=self.config.reranker.api.key, base_url=self.config.reranker.api.base_url)
-        response = client.embeddings.create(
-            input=s1 + s2,
-            model=self.config.reranker.api.model
-        )
-        embeddings = [r.embedding for r in response.data]
+        max_bs = 10
+        all_s = s1 + s2
+        all_embeddings = []
+        for i in range(0, len(all_s), max_bs):
+            response = client.embeddings.create(
+                input=all_s[i:i+max_bs],
+                model=self.config.reranker.api.model
+            )
+            embeddings = [r.embedding for r in response.data]
+            all_embeddings.extend(embeddings)
+        embeddings = all_embeddings
         s1_embeddings = np.array(embeddings[:len(s1)]) # [n_s1, d]
         s2_embeddings = np.array(embeddings[len(s1):]) # [n_s2, d]
         s1_embeddings_normalized = s1_embeddings / np.linalg.norm(s1_embeddings, axis=1, keepdims=True)
